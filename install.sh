@@ -497,7 +497,7 @@ phase_firewall() {
     configure_ufw
     
     if [[ "${FAIL2BAN_ENABLED}" == "true" ]]; then
-        setup_fail2ban
+        configure_fail2ban
     fi
     
     log_success "Firewall configuration complete"
