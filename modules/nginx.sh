@@ -24,7 +24,7 @@ readonly NGINX_STREAM_DIR="${NGINX_CONF_DIR}/stream.conf.d"
 readonly NGINX_HTML_DIR="/var/www/html"
 
 # Fake website template sources
-declare -a FAKE_SITE_SOURCES=(
+readonly FAKE_SITE_SOURCES=(
     "https://github.com/cortez24rus/simple-web-templates/archive/refs/heads/main.zip"
 )
 
