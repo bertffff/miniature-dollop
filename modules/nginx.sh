@@ -54,7 +54,7 @@ install_nginx() {
         apt-get update
     fi
     
-    install_packages nginx
+    install_packages nginx libnginx-mod-stream
     
     register_rollback "apt-get remove -y nginx && rm -rf ${NGINX_CONF_DIR}" "normal"
     
