@@ -34,28 +34,35 @@ generate_x25519_keypair() {
     # Prefer Docker-based generation for consistency
     if command -v docker &> /dev/null; then
         # 2. Явно скачиваем образ, чтобы видеть ошибки загрузки
-        docker pull "${XRAY_IMAGE}" >&2 || log_warn "Failed to pull image, trying to run anyway..."
+        docker pull "${XRAY_IMAGE}" >&2 || log_warn "Failed to pull image, trying to run anyway..." >&2
         
-        # 3. Убрали 2>/dev/null, чтобы ошибки докера были видны в консоли
-        output=$(docker run --rm "${XRAY_IMAGE}" x25519)
+        # 3. Запускаем генерацию ключей
+        output=$(docker run --rm "${XRAY_IMAGE}" x25519 2>&1)
     else
-        log_error "Docker not available for key generation"
+        log_error "Docker not available for key generation" >&2
         return 1
     fi
     
     local private_key public_key
-    private_key=$(echo "${output}" | grep "Private key:" | awk '{print $3}')
-    public_key=$(echo "${output}" | grep "Public key:" | awk '{print $3}')
+    
+    if echo "${output}" | grep -q "PrivateKey:"; then
+        # Новый формат
+        private_key=$(echo "${output}" | grep "PrivateKey:" | awk '{print $2}')
+        public_key=$(echo "${output}" | grep "Password:" | awk '{print $2}')
+    else
+        # Старый формат (обратная совместимость)
+        private_key=$(echo "${output}" | grep "Private key:" | awk '{print $3}')
+        public_key=$(echo "${output}" | grep "Public key:" | awk '{print $3}')
+    fi
     
     if [[ -z "${private_key}" ]] || [[ -z "${public_key}" ]]; then
         # 4. Выводим полученный output для отладки
-        log_error "Failed to parse X25519 keys. Output was: ${output}"
+        log_error "Failed to parse X25519 keys. Output was: ${output}" >&2
         return 1
     fi
     
     echo "${private_key}:${public_key}"
 }
-
 generate_short_ids() {
     local count="${1:-4}"
     local ids="[]"
