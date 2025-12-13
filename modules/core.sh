@@ -130,9 +130,9 @@ EOF
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Rollback stacks
-declare -a CRITICAL_ROLLBACK=()   # SSH, Firewall (executed last, most important)
-declare -a NORMAL_ROLLBACK=()     # Configs, containers
-declare -a CLEANUP_ROLLBACK=()    # Temporary files (executed first)
+declare -g -a CRITICAL_ROLLBACK=()   # SSH, Firewall (executed last, most important)
+declare -g -a NORMAL_ROLLBACK=()     # Configs, containers
+declare -g -a CLEANUP_ROLLBACK=()    # Temporary files (executed first)
 
 # Current installation phase
 CURRENT_PHASE=""
