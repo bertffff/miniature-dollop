@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${FAKE_SITE_TITLE}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            padding: 60px 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .logo svg {
+            width: 45px;
+            height: 45px;
+            fill: white;
+        }
+        
+        h1 {
+            color: #1a202c;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .subtitle {
+            color: #718096;
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .feature {
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+        }
+        
+        .feature:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .feature-icon svg {
+            width: 25px;
+            height: 25px;
+            fill: white;
+        }
+        
+        .feature h3 {
+            color: #2d3748;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.5);
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e2e8f0;
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 40px 25px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+        </div>
+        
+        <h1>${FAKE_SITE_COMPANY}</h1>
+        <p class="subtitle">
+            ${FAKE_SITE_DESCRIPTION}
+        </p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                <h3>Secure</h3>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                    </svg>
+                </div>
+                <h3>Fast</h3>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+                        <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/>
+                    </svg>
+                </div>
+                <h3>Reliable</h3>
+            </div>
+        </div>
+        
+        <a href="mailto:${FAKE_SITE_EMAIL}" class="cta-button">Contact Us</a>
+        
+        <div class="footer">
+            &copy; ${FAKE_SITE_YEAR} ${FAKE_SITE_COMPANY}. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
