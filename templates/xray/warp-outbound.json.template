@@ -1,0 +1,25 @@
+{
+    "tag": "warp",
+    "protocol": "wireguard",
+    "settings": {
+        "secretKey": "{{WARP_PRIVATE_KEY}}",
+        "address": [
+            "{{WARP_IPV4}}/32",
+            "{{WARP_IPV6}}/128"
+        ],
+        "peers": [
+            {
+                "publicKey": "{{WARP_PEER_PUBLIC_KEY}}",
+                "allowedIPs": [
+                    "0.0.0.0/0",
+                    "::/0"
+                ],
+                "endpoint": "{{WARP_ENDPOINT}}",
+                "keepAlive": 30
+            }
+        ],
+        "reserved": {{WARP_RESERVED}},
+        "mtu": 1280,
+        "workers": 2
+    }
+}

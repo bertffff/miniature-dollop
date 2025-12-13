@@ -1,0 +1,43 @@
+{
+    "tag": "{{INBOUND_TAG}}",
+    "listen": "{{LISTEN_ADDRESS}}",
+    "port": {{PORT}},
+    "protocol": "vless",
+    "settings": {
+        "clients": [],
+        "decryption": "none"
+    },
+    "streamSettings": {
+        "network": "tcp",
+        "tcpSettings": {
+            "acceptProxyProtocol": false
+        },
+        "security": "reality",
+        "realitySettings": {
+            "show": false,
+            "dest": "{{REALITY_DEST}}:{{REALITY_PORT}}",
+            "xver": 0,
+            "serverNames": [
+                "{{REALITY_DEST}}",
+                "www.{{REALITY_DEST}}"
+            ],
+            "privateKey": "{{PRIVATE_KEY}}",
+            "shortIds": [
+                "{{SHORT_ID_1}}",
+                "{{SHORT_ID_2}}",
+                "{{SHORT_ID_3}}",
+                "{{SHORT_ID_4}}"
+            ]
+        }
+    },
+    "sniffing": {
+        "enabled": true,
+        "destOverride": [
+            "http",
+            "tls",
+            "quic"
+        ],
+        "metadataOnly": false,
+        "routeOnly": false
+    }
+}

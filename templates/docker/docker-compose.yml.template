@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  marzban:
+    image: gozargah/marzban:latest
+    container_name: marzban
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - /var/lib/marzban:/var/lib/marzban
+      - /var/lib/marzban/xray_config.json:/var/lib/marzban/xray_config.json:ro
+{{#SSL_ENABLED}}
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+{{/SSL_ENABLED}}
+    depends_on:
+{{#MARIADB_ENABLED}}
+      mariadb:
+        condition: service_healthy
+{{/MARIADB_ENABLED}}
+{{#ADGUARD_ENABLED}}
+      adguard:
+        condition: service_started
+{{/ADGUARD_ENABLED}}
+
+{{#MARIADB_ENABLED}}
+  mariadb:
+    image: mariadb:10.11
+    container_name: mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: {{MARIADB_ROOT_PASSWORD}}
+      MYSQL_DATABASE: marzban
+      MYSQL_USER: marzban
+      MYSQL_PASSWORD: {{MARIADB_PASSWORD}}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - marzban_network
+{{/MARIADB_ENABLED}}
+
+{{#ADGUARD_ENABLED}}
+  adguard:
+    image: adguard/adguardhome:latest
+    container_name: adguard
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "3000:3000/tcp"
+      - "853:853/tcp"
+    volumes:
+      - adguard_work:/opt/adguardhome/work
+      - adguard_conf:/opt/adguardhome/conf
+{{/ADGUARD_ENABLED}}
+
+{{#MARIADB_ENABLED}}
+networks:
+  marzban_network:
+    driver: bridge
+{{/MARIADB_ENABLED}}
+
+volumes:
+{{#MARIADB_ENABLED}}
+  mariadb_data:
+{{/MARIADB_ENABLED}}
+{{#ADGUARD_ENABLED}}
+  adguard_work:
+  adguard_conf:
+{{/ADGUARD_ENABLED}}
