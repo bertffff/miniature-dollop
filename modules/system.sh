@@ -78,7 +78,7 @@ install_essential_packages() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 check_cpu_compatibility() {
-    log_info "Checking CPU compatibility for XanMod..."
+    log_info "Checking CPU compatibility for XanMod..." >&2
     
     local temp_script
     temp_script=$(mktemp)
