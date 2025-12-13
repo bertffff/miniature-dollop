@@ -46,8 +46,13 @@ if [[ -z "${BACKUPS_DIR:-}" ]]; then
 fi
 
 # Marzban paths
-readonly MARZBAN_DIR="/opt/marzban"
-readonly MARZBAN_DATA_DIR="/var/lib/marzban"
+if [[ -z "${MARZBAN_DIR:-}" ]]; then
+    readonly MARZBAN_DIR="/opt/marzban"
+fi
+
+if [[ -z "${MARZBAN_DATA_DIR:-}" ]]; then
+    readonly MARZBAN_DATA_DIR="/var/lib/marzban"
+fi
 
 # Color codes
 readonly RED='\033[0;31m'
