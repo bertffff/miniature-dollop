@@ -962,12 +962,15 @@ run_installation() {
         esac
     fi
     
-    # Load configuration
+# Load configuration
     if ! load_configuration; then
         log_error "Configuration not found. Run wizard first."
         exit 1
     fi
     
+    # FIX: Ensure system variables are set (needed for resume)
+    check_os
+
     # Execute phases
     local phases=(
         "pre_checks"
