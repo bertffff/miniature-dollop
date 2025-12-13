@@ -73,7 +73,7 @@ register_warp() {
     cd "${temp_dir}"
     
     # Accept ToS and register
-    yes | wgcf register --accept-tos 2>/dev/null || {
+    wgcf register --accept-tos || {
         log_error "WARP registration failed"
         rm -rf "${temp_dir}"
         return 1
