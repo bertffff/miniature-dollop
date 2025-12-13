@@ -511,12 +511,12 @@ phase_nginx() {
     
     install_nginx
     configure_nginx_main
-    configure_nginx_sni_routing "${PANEL_DOMAIN}" "${CDN_DOMAIN:-}" "${REALITY_DEST}"
+    configure_sni_routing 
     setup_fake_website
-    generate_dhparams
+    generate_dhparam       
     
     # Validate and reload
-    if validate_nginx_config; then
+    if test_nginx_config; then 
         restart_nginx
     else
         log_error "Nginx configuration validation failed"
