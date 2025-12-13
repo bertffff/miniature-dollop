@@ -174,6 +174,28 @@ configure_sni_routing() {
     local reality_dest="${REALITY_DEST:-www.microsoft.com}"
     local panel_domain="${PANEL_DOMAIN:-}"
     local cdn_domain="${CDN_DOMAIN:-}"
+
+    # --- НАЧАЛО ИСПРАВЛЕНИЯ: Валидация портов ---
+    # Проверяем, является ли порт числом. Если нет — ставим значение по умолчанию.
+    
+    local reality_port="${REALITY_PORT:-8443}"
+    if [[ ! "${reality_port}" =~ ^[0-9]+$ ]]; then
+        log_warn "Invalid REALITY_PORT '${reality_port}', using default 8443"
+        reality_port="8443"
+    fi
+
+    local ws_port="${WS_PORT:-8444}"
+    if [[ ! "${ws_port}" =~ ^[0-9]+$ ]]; then
+        log_warn "Invalid WS_PORT '${ws_port}', using default 8444"
+        ws_port="8444"
+    fi
+
+    local marzban_port="${MARZBAN_PORT:-8000}"
+    if [[ ! "${marzban_port}" =~ ^[0-9]+$ ]]; then
+        log_warn "Invalid MARZBAN_PORT '${marzban_port}', using default 8000"
+        marzban_port="8000"
+    fi
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
     # Create SNI routing configuration
     cat > "${NGINX_STREAM_DIR}/sni-router.conf" << EOF
@@ -214,15 +236,15 @@ EOF
 
 # Upstream definitions
 upstream xray_reality {
-    server 127.0.0.1:${REALITY_PORT:-8443};
+    server 127.0.0.1:${reality_port};
 }
 
 upstream xray_websocket {
-    server 127.0.0.1:${WS_PORT:-8444};
+    server 127.0.0.1:${ws_port};
 }
 
 upstream marzban_panel {
-    server 127.0.0.1:${MARZBAN_PORT:-8000};
+    server 127.0.0.1:${marzban_port};
 }
 
 upstream fake_site {
@@ -249,6 +271,7 @@ EOF
     
     log_success "SNI routing configured"
 }
+
 
 configure_fake_site_server() {
     set_phase "Fake Site Server Configuration"
