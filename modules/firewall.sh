@@ -9,8 +9,10 @@
 set -euo pipefail
 
 # Source core module
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/core.sh"
+if [[ -z "${SCRIPT_DIR:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    source "${SCRIPT_DIR}/core.sh"
+fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SSH PORT DETECTION
