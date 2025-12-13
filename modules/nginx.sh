@@ -54,6 +54,9 @@ install_nginx() {
         apt-get update
     fi
     
+    # Принудительная очистка перед установкой для восстановления конфигов
+    apt-get purge -y nginx nginx-common libnginx-mod-stream 2>/dev/null || true
+    
     install_packages nginx libnginx-mod-stream
     
     register_rollback "apt-get remove -y nginx && rm -rf ${NGINX_CONF_DIR}" "normal"
