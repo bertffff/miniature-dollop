@@ -186,7 +186,7 @@ EOF
     if [[ -n "${panel_domain}" ]]; then
         cat >> "${NGINX_STREAM_DIR}/sni-router.conf" << EOF
     # Panel domain - proxy to Marzban
-    ${panel_domain}                                              marzban_panel;
+    "${panel_domain}"                                            marzban_panel;
     
 EOF
     fi
@@ -195,7 +195,7 @@ EOF
     if [[ -n "${cdn_domain}" ]]; then
         cat >> "${NGINX_STREAM_DIR}/sni-router.conf" << EOF
     # CDN domain - forward to Xray WebSocket handler
-    ${cdn_domain}                                                xray_websocket;
+    "${cdn_domain}"                                              xray_websocket;
     
 EOF
     fi
