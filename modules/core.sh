@@ -16,13 +16,34 @@ readonly INSTALLER_VERSION="2.0.0"
 readonly INSTALLER_NAME="Marzban Ultimate Installer"
 
 # Paths
-readonly INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly MODULES_DIR="${INSTALLER_DIR}/modules"
-readonly TEMPLATES_DIR="${INSTALLER_DIR}/templates"
-readonly TOOLS_DIR="${INSTALLER_DIR}/tools"
-readonly DATA_DIR="${INSTALLER_DIR}/data"
-readonly KEYS_DIR="${DATA_DIR}/keys"
-readonly BACKUPS_DIR="${DATA_DIR}/backups"
+# Only define if not already defined (to handle sourcing from install.sh)
+if [[ -z "${INSTALLER_DIR:-}" ]]; then
+    readonly INSTALLER_DIR="${SCRIPT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+fi
+
+if [[ -z "${MODULES_DIR:-}" ]]; then
+    readonly MODULES_DIR="${INSTALLER_DIR}/modules"
+fi
+
+if [[ -z "${TEMPLATES_DIR:-}" ]]; then
+    readonly TEMPLATES_DIR="${INSTALLER_DIR}/templates"
+fi
+
+if [[ -z "${TOOLS_DIR:-}" ]]; then
+    readonly TOOLS_DIR="${INSTALLER_DIR}/tools"
+fi
+
+if [[ -z "${DATA_DIR:-}" ]]; then
+    readonly DATA_DIR="${INSTALLER_DIR}/data"
+fi
+
+if [[ -z "${KEYS_DIR:-}" ]]; then
+    readonly KEYS_DIR="${DATA_DIR}/keys"
+fi
+
+if [[ -z "${BACKUPS_DIR:-}" ]]; then
+    readonly BACKUPS_DIR="${DATA_DIR}/backups"
+fi
 
 # Marzban paths
 readonly MARZBAN_DIR="/opt/marzban"
