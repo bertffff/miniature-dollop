@@ -551,7 +551,7 @@ phase_ssl() {
     fi
     
     # Setup auto-renewal
-    setup_certbot_auto_renewal
+    setup_auto_renewal
     
     log_success "SSL certificates installed"
 }
