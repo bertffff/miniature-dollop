@@ -562,20 +562,21 @@ phase_marzban() {
     
     log_info "Installing Marzban..."
     
-    # Setup directories
-    setup_marzban_directories
-    
-    # Clone Marzban
-    clone_marzban
+    # Download Marzban (setup directories and clone)
+    #
+    download_marzban
     
     # Generate docker-compose.yml
-    generate_marzban_compose
+    #
+    generate_docker_compose
     
     # Generate .env file
+    #
     generate_marzban_env
     
     # Generate base Xray config
-    setup_xray_base_config
+    #
+    generate_xray_base_config
     
     log_success "Marzban base installation complete"
 }
