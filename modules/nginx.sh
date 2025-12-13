@@ -145,6 +145,9 @@ http {
 
 # Stream module for SNI routing (TCP proxy)
 stream {
+    # Fix for map_hash_bucket_size error
+    map_hash_bucket_size 128;
+
     log_format stream_log '$remote_addr [$time_local] '
                           '$protocol $status $bytes_sent $bytes_received '
                           '$session_time "$upstream_addr" '
