@@ -26,13 +26,18 @@ readonly KEYS_FILE="${KEYS_DIR}/reality_keys.json"
 # ═══════════════════════════════════════════════════════════════════════════════
 
 generate_x25519_keypair() {
-    log_info "Generating X25519 key pair..."
+    # 1. Пишем лог в stderr, чтобы не смешивать с возвращаемым значением функции
+    log_info "Generating X25519 key pair..." >&2
     
     local output
     
     # Prefer Docker-based generation for consistency
     if command -v docker &> /dev/null; then
-        output=$(docker run --rm "${XRAY_IMAGE}" x25519 2>/dev/null)
+        # 2. Явно скачиваем образ, чтобы видеть ошибки загрузки
+        docker pull "${XRAY_IMAGE}" >&2 || log_warn "Failed to pull image, trying to run anyway..."
+        
+        # 3. Убрали 2>/dev/null, чтобы ошибки докера были видны в консоли
+        output=$(docker run --rm "${XRAY_IMAGE}" x25519)
     else
         log_error "Docker not available for key generation"
         return 1
@@ -43,7 +48,8 @@ generate_x25519_keypair() {
     public_key=$(echo "${output}" | grep "Public key:" | awk '{print $3}')
     
     if [[ -z "${private_key}" ]] || [[ -z "${public_key}" ]]; then
-        log_error "Failed to parse X25519 keys"
+        # 4. Выводим полученный output для отладки
+        log_error "Failed to parse X25519 keys. Output was: ${output}"
         return 1
     fi
     
