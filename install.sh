@@ -129,14 +129,11 @@ run_wizard() {
     echo ""
     log_step "1/8" "Deployment Mode"
     echo ""
-    echo "Available deployment modes:"
-    echo "  1) exit        - Full exit node (direct to internet)"
-    echo "  2) relay       - Relay only (forwards to another server)"  
-    echo "  3) exit+relay  - Both modes combined"
-    echo ""
-    
     local mode_choice
-    mode_choice=$(select_option "Select deployment mode" "1" "1" "2" "3")
+    mode_choice=$(select_option "Select deployment mode" \
+        "exit        - Full exit node (direct to internet)" \
+        "relay       - Relay only (forwards to another server)" \
+        "exit+relay  - Both modes combined")
     
     case "${mode_choice}" in
         1) DEPLOYMENT_MODE="exit" ;;
@@ -167,14 +164,10 @@ run_wizard() {
             exit 1
         fi
         
-        echo ""
-        echo "Available CDN providers:"
-        echo "  1) gcore      - GCore CDN (recommended)"
-        echo "  2) edgecenter - EdgeCenter CDN"
-        echo ""
-        
         local cdn_choice
-        cdn_choice=$(select_option "Select CDN provider" "1" "1" "2")
+        cdn_choice=$(select_option "Select CDN provider" \
+            "gcore      - GCore CDN (recommended)" \
+            "edgecenter - EdgeCenter CDN")
         
         case "${cdn_choice}" in
             1) CDN_PROVIDER="gcore" ;;
@@ -227,13 +220,10 @@ run_wizard() {
     log_step "5/8" "Database Configuration"
     echo ""
     
-    echo "Available database options:"
-    echo "  1) sqlite  - Simple, file-based (recommended for <100 users)"
-    echo "  2) mariadb - Full database server (recommended for >100 users)"
-    echo ""
-    
     local db_choice
-    db_choice=$(select_option "Select database type" "1" "1" "2")
+    db_choice=$(select_option "Select database type" \
+        "sqlite  - Simple, file-based (recommended for <100 users)" \
+        "mariadb - Full database server (recommended for >100 users)")
     
     case "${db_choice}" in
         1) DATABASE_TYPE="sqlite" ;;
