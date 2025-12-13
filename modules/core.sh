@@ -43,7 +43,7 @@ readonly NC='\033[0m'  # No Color
 # ═══════════════════════════════════════════════════════════════════════════════
 
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $*"
+    echo -e "${GREEN}[INFO]${NC} $*" >&2
 }
 
 log_warn() {
@@ -56,20 +56,20 @@ log_error() {
 
 log_debug() {
     if [[ "${DEBUG:-false}" == "true" ]]; then
-        echo -e "${BLUE}[DEBUG]${NC} $*"
+        echo -e "${BLUE}[DEBUG]${NC} $*" >&2
     fi
 }
 
 log_input() {
-    echo -en "${CYAN}[INPUT]${NC} $*"
+    echo -en "${CYAN}[INPUT]${NC} $*" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}[✓]${NC} $*"
+    echo -e "${GREEN}[✓]${NC} $*" >&2
 }
 
 log_step() {
-    echo -e "\n${BOLD}${BLUE}▶${NC} ${BOLD}$*${NC}"
+    echo -e "\n${BOLD}${BLUE}▶${NC} ${BOLD}$*${NC}" >&2
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -614,15 +614,15 @@ select_option() {
     local options=("$@")
     local choice
     
-    echo
+    echo >&2
     log_info "${prompt}"
-    echo
+    echo >&2
     
     for i in "${!options[@]}"; do
-        echo "  $((i+1))) ${options[i]}"
+        echo "  $((i+1))) ${options[i]}" >&2
     done
     
-    echo
+    echo >&2
     while true; do
         log_input "Select option [1-${#options[@]}]: "
         read -r choice
@@ -630,7 +630,7 @@ select_option() {
         if [[ "${choice}" =~ ^[0-9]+$ ]] && \
            [[ "${choice}" -ge 1 ]] && \
            [[ "${choice}" -le "${#options[@]}" ]]; then
-            echo "$((choice-1))"
+            echo "${choice}"
             return 0
         fi
         
