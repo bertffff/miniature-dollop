@@ -19,7 +19,6 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════════
 
 readonly MARZBAN_REPO="https://github.com/Gozargah/Marzban"
-readonly MARZBAN_DIR="/opt/marzban"
 readonly MARZBAN_DATA="/var/lib/marzban"
 readonly MARZBAN_ENV="${MARZBAN_DIR}/.env"
 
