@@ -87,7 +87,7 @@ log_debug() {
 }
 
 log_input() {
-    echo -en "${CYAN}[INPUT]${NC} $*"
+    echo -en "${CYAN}[INPUT]${NC} $*" >&2
 }
 
 log_success() {
@@ -640,23 +640,24 @@ select_option() {
     local options=("$@")
     local choice
     
-    echo
-    log_info "${prompt}"
-    echo
+    echo >&2
+    log_info "${prompt}" >&2
+    echo >&2
     
     for i in "${!options[@]}"; do
-        echo "  $((i+1))) ${options[i]}"
+        echo "  $((i+1))) ${options[i]}" >&2
     done
     
-    echo
+    echo >&2
     while true; do
         log_input "Select option [1-${#options[@]}]: "
+        # Ввод читается напрямую, вывод log_input уже исправлен выше
         read -r choice
         
         if [[ "${choice}" =~ ^[0-9]+$ ]] && \
            [[ "${choice}" -ge 1 ]] && \
            [[ "${choice}" -le "${#options[@]}" ]]; then
-            echo "$((choice-1))"
+            echo "$((choice-1))" # Это единственное, что должно уходить в stdout (возвращаемое значение)
             return 0
         fi
         
