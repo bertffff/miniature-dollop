@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Module: warp.sh
-# Purpose: Cloudflare WARP setup for Xray outbound (FIXED VERSION)
+# Purpose: Cloudflare WARP setup with automatic WARP+ key generation
 # Dependencies: core.sh
 #
 
@@ -18,376 +18,290 @@ fi
 # CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-readonly WGCF_VERSION="2.2.22"
-readonly WGCF_URL="https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VERSION}/wgcf_${WGCF_VERSION}_linux_amd64"
-readonly WARP_CONFIG_FILE="${KEYS_DIR}/warp_account.json"
+# GitHub releases for warp-go and warp-api
+readonly WARP_GO_VERSION="1.3.11"
+readonly WARP_GO_URL="https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-go/warp-go-latest-linux-amd64"
+readonly WARP_API_URL="https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-api/warp-api-latest-linux-amd64"
+
+# Local paths
+readonly WARP_TOOLS_DIR="${TOOLS_DIR}/warp"
+readonly WARP_GO_BIN="${WARP_TOOLS_DIR}/warp-go"
+readonly WARP_API_BIN="${WARP_TOOLS_DIR}/warp-api"
+readonly WARP_CONFIG_FILE="${KEYS_DIR}/warp.conf"
+readonly WARP_PROXY_FILE="${KEYS_DIR}/warp-proxy.conf"
+readonly WARP_KEY_FILE="${KEYS_DIR}/warp-plus-key.txt"
 readonly WARP_OUTBOUND_FILE="${KEYS_DIR}/warp_config.json"
 
-# Cloudflare WARP API endpoints
-readonly WARP_API_ENDPOINT="https://api.cloudflareclient.com"
-readonly WARP_REG_ENDPOINT="${WARP_API_ENDPOINT}/v0a2223/reg"
+# Cloudflare WARP endpoints
+readonly WARP_ENDPOINT_V4="162.159.192.8"
+readonly WARP_ENDPOINT_V6="2606:4700:d0::a29f:c008"
+readonly WARP_PEER_PUBLIC_KEY="bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# WGCF INSTALLATION
+# UTILITIES INSTALLATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-is_wgcf_installed() {
-    [[ -x /usr/local/bin/wgcf ]]
-}
-
-install_wgcf() {
-    if is_wgcf_installed; then
-        log_info "wgcf already installed"
-        return 0
+download_warp_tools() {
+    set_phase "WARP Tools Download"
+    
+    log_info "Downloading WARP utilities..."
+    
+    mkdir -p "${WARP_TOOLS_DIR}"
+    
+    # Download warp-go
+    if [[ ! -f "${WARP_GO_BIN}" ]]; then
+        log_info "Downloading warp-go..."
+        if wget -q -O "${WARP_GO_BIN}" "${WARP_GO_URL}"; then
+            chmod +x "${WARP_GO_BIN}"
+            log_success "warp-go downloaded"
+        else
+            log_error "Failed to download warp-go"
+            return 1
+        fi
+    else
+        log_info "warp-go already exists"
     fi
     
-    log_info "Installing wgcf..."
+    # Download warp-api
+    if [[ ! -f "${WARP_API_BIN}" ]]; then
+        log_info "Downloading warp-api..."
+        if wget -q -O "${WARP_API_BIN}" "${WARP_API_URL}"; then
+            chmod +x "${WARP_API_BIN}"
+            log_success "warp-api downloaded"
+        else
+            log_error "Failed to download warp-api"
+            return 1
+        fi
+    else
+        log_info "warp-api already exists"
+    fi
     
-    if ! wget -q -O /usr/local/bin/wgcf "${WGCF_URL}"; then
-        log_error "Failed to download wgcf"
+    register_rollback "rm -rf ${WARP_TOOLS_DIR}" "cleanup"
+    
+    log_success "WARP tools ready"
+}
+
+install_python_deps() {
+    log_info "Installing Python dependencies for WARP+ key generator..."
+    
+    # Check Python 3
+    if ! command -v python3 &> /dev/null; then
+        log_error "Python 3 not found"
         return 1
     fi
     
-    chmod +x /usr/local/bin/wgcf
-    
-    register_rollback "rm -f /usr/local/bin/wgcf" "normal"
-    
-    log_success "wgcf installed"
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MANUAL WARP REGISTRATION (Alternative to wgcf)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-manual_warp_register() {
-    log_info "Attempting manual WARP registration via API..."
-    
-    # Install jq if not available
-    if ! command -v jq &> /dev/null; then
-        apt-get install -y jq 2>/dev/null || {
-            log_error "Failed to install jq"
-            return 1
+    # Install httpx
+    if ! python3 -c "import httpx" 2>/dev/null; then
+        log_info "Installing httpx..."
+        pip3 install httpx --break-system-packages 2>/dev/null || \
+        python3 -m pip install httpx --break-system-packages 2>/dev/null || {
+            log_warn "Could not install httpx via pip, trying apt..."
+            apt-get install -y python3-httpx 2>/dev/null || {
+                log_error "Failed to install httpx"
+                return 1
+            }
         }
     fi
     
-    # Generate random install_id
-    local install_id
-    install_id=$(openssl rand -hex 22 | head -c 22)
-    
-    # Generate WireGuard keys
-    local private_key public_key
-    if command -v wg &> /dev/null; then
-        private_key=$(wg genkey)
-        public_key=$(echo "${private_key}" | wg pubkey)
-    else
-        # Use openssl as fallback
-        private_key=$(openssl rand -base64 32)
-        # Note: This won't be a proper Curve25519 key, but we'll try
-        public_key=$(echo "${private_key}" | base64 -d | sha256sum | cut -d' ' -f1 | head -c 44)
+    # Install requests
+    if ! python3 -c "import requests" 2>/dev/null; then
+        log_info "Installing requests..."
+        pip3 install requests --break-system-packages 2>/dev/null || \
+        python3 -m pip install requests --break-system-packages 2>/dev/null || \
+        apt-get install -y python3-requests 2>/dev/null || true
     fi
     
-    # Prepare registration payload
-    local payload
-    payload=$(cat << EOF
-{
-    "install_id": "${install_id}",
-    "fcm_token": "${install_id}:APA91b${install_id}",
-    "tos": "$(date -u +%Y-%m-%dT%H:%M:%S.000000000Z)",
-    "key": "${public_key}",
-    "type": "Android",
-    "model": "Linux",
-    "locale": "en_US"
+    log_success "Python dependencies installed"
 }
-EOF
-)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WARP+ KEY GENERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+generate_warp_plus_key() {
+    log_step "WARP+ Key Generation"
     
-    # Register with Cloudflare
-    local response
-    response=$(curl -s -X POST "${WARP_REG_ENDPOINT}" \
-        -H "Content-Type: application/json" \
-        -H "CF-Client-Version: a-6.30" \
-        -H "User-Agent: okhttp/3.12.1" \
-        --data "${payload}" 2>&1)
+    # Check if key already exists
+    if [[ -f "${WARP_KEY_FILE}" ]]; then
+        local existing_key
+        existing_key=$(cat "${WARP_KEY_FILE}")
+        if [[ -n "${existing_key}" ]] && [[ "${existing_key}" =~ ^[A-Z0-9a-z]{8}-[A-Z0-9a-z]{8}-[A-Z0-9a-z]{8}$ ]]; then
+            log_info "WARP+ key already exists: ${existing_key}"
+            export WARP_PLUS_KEY="${existing_key}"
+            return 0
+        fi
+    fi
     
-    local http_code
-    http_code=$(echo "${response}" | grep -oP 'HTTP/\d\.\d \K\d+' | head -1)
+    log_info "Generating new WARP+ key..."
     
-    if [[ -z "${http_code}" ]]; then
-        # Try to parse response as JSON
-        if echo "${response}" | jq -e '.id' > /dev/null 2>&1; then
-            # Success
-            local device_id access_token
-            device_id=$(echo "${response}" | jq -r '.id')
-            access_token=$(echo "${response}" | jq -r '.token')
-            
-            # Get WireGuard config
-            local config_response
-            config_response=$(curl -s "${WARP_REG_ENDPOINT}/${device_id}" \
-                -H "Authorization: Bearer ${access_token}" \
-                -H "CF-Client-Version: a-6.30")
-            
-            if echo "${config_response}" | jq -e '.config' > /dev/null 2>&1; then
-                # Extract config details
-                local peer_public_key endpoint addresses
-                peer_public_key=$(echo "${config_response}" | jq -r '.config.peers[0].public_key')
-                endpoint=$(echo "${config_response}" | jq -r '.config.peers[0].endpoint.host'):2408
-                addresses=$(echo "${config_response}" | jq -r '.config.interface.addresses | .["v4"], .["v6"]')
-                
-                # Save account info
-                cat > "${WARP_CONFIG_FILE}" << EOF
-{
-    "device_id": "${device_id}",
-    "access_token": "${access_token}",
-    "private_key": "${private_key}",
-    "public_key": "${public_key}",
-    "peer_public_key": "${peer_public_key}",
-    "endpoint": "${endpoint}",
-    "addresses": "${addresses}",
-    "license_key": "",
-    "registered_at": "$(date -Iseconds)",
-    "method": "manual"
+    # Install Python dependencies
+    install_python_deps || {
+        log_error "Failed to install Python dependencies"
+        return 1
+    }
+    
+    # Call the Python generator
+    local generator_script="${TOOLS_DIR}/warp-plus-keygen.py"
+    
+    if [[ ! -f "${generator_script}" ]]; then
+        log_error "WARP+ key generator script not found: ${generator_script}"
+        return 1
+    fi
+    
+    local generated_key
+    generated_key=$(python3 "${generator_script}" 2>/dev/null | grep -oP '^[A-Z0-9a-z]{8}-[A-Z0-9a-z]{8}-[A-Z0-9a-z]{8}$' | head -1)
+    
+    if [[ -z "${generated_key}" ]]; then
+        log_error "Failed to generate WARP+ key"
+        return 1
+    fi
+    
+    # Save key
+    echo "${generated_key}" > "${WARP_KEY_FILE}"
+    chmod 600 "${WARP_KEY_FILE}"
+    
+    export WARP_PLUS_KEY="${generated_key}"
+    
+    log_success "WARP+ key generated: ${generated_key}"
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WARP ACCOUNT REGISTRATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+register_warp_account() {
+    local account_type="${1:-free}"  # free, plus, teams
+    local license_key="${2:-}"
+    
+    log_step "WARP Account Registration (${account_type})"
+    
+    # Generate initial account using warp-api
+    log_info "Creating WARP account..."
+    
+    cd "${WARP_TOOLS_DIR}" || return 1
+    
+    local result_output
+    result_output=$("${WARP_API_BIN}" 2>&1)
+    
+    local device_id private_key warp_token
+    device_id=$(echo "$result_output" | awk -F ': ' '/device_id/{print $2}')
+    private_key=$(echo "$result_output" | awk -F ': ' '/private_key/{print $2}')
+    warp_token=$(echo "$result_output" | awk -F ': ' '/token/{print $2}')
+    
+    if [[ -z "${device_id}" ]] || [[ -z "${private_key}" ]] || [[ -z "${warp_token}" ]]; then
+        log_error "Failed to parse warp-api output"
+        log_debug "Output: ${result_output}"
+        return 1
+    fi
+    
+    log_success "WARP account created"
+    log_info "Device ID: ${device_id}"
+    
+    # Create base configuration
+    cat > "${WARP_CONFIG_FILE}" << EOF
+[Account]
+Device = ${device_id}
+PrivateKey = ${private_key}
+Token = ${warp_token}
+Type = free
+Name = WARP
+MTU = 1280
+
+[Peer]
+PublicKey = ${WARP_PEER_PUBLIC_KEY}
+Endpoint = ${WARP_ENDPOINT_V4}:0
+Endpoint6 = [${WARP_ENDPOINT_V6}]:0
+KeepAlive = 30
 EOF
-                chmod 600 "${WARP_CONFIG_FILE}"
-                
-                log_success "Manual WARP registration successful"
+    
+    chmod 600 "${WARP_CONFIG_FILE}"
+    
+    # Upgrade to WARP+ if key provided or account_type is plus
+    if [[ "${account_type}" == "plus" ]]; then
+        if [[ -z "${license_key}" ]]; then
+            # Generate WARP+ key
+            generate_warp_plus_key || {
+                log_warn "Failed to generate WARP+ key, using free account"
                 return 0
-            fi
+            }
+            license_key="${WARP_PLUS_KEY}"
+        fi
+        
+        log_info "Upgrading to WARP+..."
+        
+        local device_name
+        device_name="marzban-$(date +%s%N | md5sum | cut -c 1-6)"
+        
+        if "${WARP_GO_BIN}" --update --config="${WARP_CONFIG_FILE}" --license="${license_key}" --device-name="${device_name}" 2>&1; then
+            log_success "Upgraded to WARP+"
+            sed -i 's/Type = free/Type = plus/' "${WARP_CONFIG_FILE}"
+        else
+            log_warn "Failed to upgrade to WARP+, using free account"
         fi
     fi
     
-    log_error "Manual WARP registration failed"
-    log_debug "Response: ${response}"
-    return 1
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# WARP REGISTRATION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-is_warp_registered() {
-    [[ -f "${WARP_CONFIG_FILE}" ]] && jq -e '.device_id' "${WARP_CONFIG_FILE}" > /dev/null 2>&1
-}
-
-register_warp_with_wgcf() {
-    log_info "Attempting WARP registration with wgcf..."
+    # Export WireGuard configuration
+    log_info "Generating WireGuard proxy configuration..."
     
-    local temp_dir
-    temp_dir=$(mktemp -d)
-    
-    cd "${temp_dir}"
-    
-    # Try registration with timeout
-    local reg_output
-    if ! reg_output=$(timeout 30 wgcf register --accept-tos 2>&1); then
-        local exit_code=$?
-        log_warn "wgcf registration failed (exit code: ${exit_code})"
-        log_debug "Output: ${reg_output}"
-        cd - > /dev/null
-        rm -rf "${temp_dir}"
+    if "${WARP_GO_BIN}" --config="${WARP_CONFIG_FILE}" --export-wireguard="${WARP_PROXY_FILE}" 2>&1; then
+        log_success "WireGuard configuration exported"
+    else
+        log_error "Failed to export WireGuard configuration"
         return 1
     fi
     
-    # Check if registration was successful
-    if [[ ! -f "wgcf-account.toml" ]]; then
-        log_error "wgcf account file not created"
-        cd - > /dev/null
-        rm -rf "${temp_dir}"
-        return 1
-    fi
-    
-    # Generate WireGuard config
-    if ! wgcf generate 2>/dev/null; then
-        log_error "Failed to generate WARP config"
-        cd - > /dev/null
-        rm -rf "${temp_dir}"
-        return 1
-    fi
-    
-    # Parse the generated config
-    if [[ -f "wgcf-account.toml" ]]; then
-        local device_id access_token license_key
-        device_id=$(grep 'device_id' wgcf-account.toml | cut -d"'" -f2 || echo "")
-        access_token=$(grep 'access_token' wgcf-account.toml | cut -d"'" -f2 || echo "")
-        license_key=$(grep 'license_key' wgcf-account.toml | cut -d"'" -f2 || echo "")
-        
-        if [[ -z "${device_id}" ]] || [[ -z "${access_token}" ]]; then
-            log_error "Failed to parse wgcf account details"
-            cd - > /dev/null
-            rm -rf "${temp_dir}"
-            return 1
-        fi
-        
-        cat > "${WARP_CONFIG_FILE}" << EOF
-{
-    "device_id": "${device_id}",
-    "access_token": "${access_token}",
-    "license_key": "${license_key}",
-    "registered_at": "$(date -Iseconds)",
-    "method": "wgcf"
-}
-EOF
-        chmod 600 "${WARP_CONFIG_FILE}"
-    fi
-    
-    # Parse WireGuard profile
-    if [[ -f "wgcf-profile.conf" ]]; then
-        local private_key public_key endpoint ipv4 ipv6
-        private_key=$(grep 'PrivateKey' wgcf-profile.conf | cut -d'=' -f2 | tr -d ' ')
-        public_key=$(grep -A5 '\[Peer\]' wgcf-profile.conf | grep 'PublicKey' | cut -d'=' -f2 | tr -d ' ')
-        endpoint=$(grep 'Endpoint' wgcf-profile.conf | cut -d'=' -f2 | tr -d ' ')
-        
-        # Extract addresses
-        ipv4=$(grep 'Address' wgcf-profile.conf | grep -oP '\d+\.\d+\.\d+\.\d+/\d+' | head -1 || echo "")
-        ipv6=$(grep 'Address' wgcf-profile.conf | grep -oP '[0-9a-f:]+/\d+' | head -1 || echo "")
-        
-        # Update config with WireGuard details
-        if [[ -f "${WARP_CONFIG_FILE}" ]]; then
-            local temp_config
-            temp_config=$(jq --arg pk "${private_key}" \
-                           --arg pubk "${public_key}" \
-                           --arg ep "${endpoint}" \
-                           --arg ipv4 "${ipv4}" \
-                           --arg ipv6 "${ipv6}" \
-                           '. + {private_key: $pk, peer_public_key: $pubk, endpoint: $ep, ipv4: $ipv4, ipv6: $ipv6}' \
-                           "${WARP_CONFIG_FILE}")
-            echo "${temp_config}" > "${WARP_CONFIG_FILE}"
-        fi
-        
-        # Generate Xray config
-        generate_warp_xray_outbound "${private_key}" "${public_key}" "${endpoint}" "[0, 0, 0]" "${ipv4}" "${ipv6}"
-    fi
-    
-    cd - > /dev/null
-    rm -rf "${temp_dir}"
-    
-    log_success "wgcf registration successful"
     return 0
 }
 
-register_warp() {
-    set_phase "WARP Registration"
+# ═══════════════════════════════════════════════════════════════════════════════
+# XRAY WARP OUTBOUND GENERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+generate_xray_warp_outbound() {
+    log_step "Xray WARP Outbound Generation"
     
-    if is_warp_registered; then
-        log_info "WARP account already registered"
-        
-        # Ensure outbound config exists
-        if [[ ! -f "${WARP_OUTBOUND_FILE}" ]]; then
-            log_warn "Outbound config missing, regenerating..."
-            regenerate_warp_outbound
+    if [[ ! -f "${WARP_PROXY_FILE}" ]]; then
+        log_error "WARP proxy configuration not found"
+        return 1
+    fi
+    
+    log_info "Parsing WireGuard configuration..."
+    
+    # Parse WireGuard config
+    local private_key address endpoint peer_public_key allowed_ips
+    
+    while IFS= read -r line; do
+        if [[ "${line}" =~ ^PrivateKey[[:space:]]*=[[:space:]]*(.*) ]]; then
+            private_key="${BASH_REMATCH[1]}"
+        elif [[ "${line}" =~ ^Address[[:space:]]*=[[:space:]]*(.*) ]]; then
+            address="${BASH_REMATCH[1]}"
+        elif [[ "${line}" =~ ^Endpoint[[:space:]]*=[[:space:]]*(.*) ]]; then
+            endpoint="${BASH_REMATCH[1]}"
+        elif [[ "${line}" =~ ^PublicKey[[:space:]]*=[[:space:]]*(.*) ]]; then
+            peer_public_key="${BASH_REMATCH[1]}"
+        elif [[ "${line}" =~ ^AllowedIPs[[:space:]]*=[[:space:]]*(.*) ]]; then
+            allowed_ips="${BASH_REMATCH[1]}"
         fi
-        
-        return 0
-    fi
+    done < "${WARP_PROXY_FILE}"
     
-    # Ensure wgcf is installed
-    install_wgcf
-    
-    # Try wgcf registration first
-    log_info "Method 1: Trying wgcf registration..."
-    if register_warp_with_wgcf; then
-        return 0
-    fi
-    
-    log_warn "wgcf registration failed, trying manual method..."
-    
-    # Fall back to manual registration
-    log_info "Method 2: Trying manual API registration..."
-    if manual_warp_register; then
-        # Generate outbound config from manual registration
-        if [[ -f "${WARP_CONFIG_FILE}" ]]; then
-            local private_key peer_public_key endpoint ipv4 ipv6
-            private_key=$(jq -r '.private_key' "${WARP_CONFIG_FILE}")
-            peer_public_key=$(jq -r '.peer_public_key' "${WARP_CONFIG_FILE}")
-            endpoint=$(jq -r '.endpoint' "${WARP_CONFIG_FILE}")
-            ipv4=$(jq -r '.addresses' "${WARP_CONFIG_FILE}" | grep -oP '\d+\.\d+\.\d+\.\d+/\d+' || echo "172.16.0.2/32")
-            ipv6=$(jq -r '.addresses' "${WARP_CONFIG_FILE}" | grep -oP '[0-9a-f:]+/\d+' || echo "2606:4700:110::/128")
-            
-            generate_warp_xray_outbound "${private_key}" "${peer_public_key}" "${endpoint}" "[0, 0, 0]" "${ipv4}" "${ipv6}"
-        fi
-        return 0
-    fi
-    
-    # Both methods failed
-    log_error "═══════════════════════════════════════════════════════════"
-    log_error "WARP Registration Failed"
-    log_error "═══════════════════════════════════════════════════════════"
-    log_warn "Possible reasons:"
-    log_warn "  1. Cloudflare WARP service is temporarily unavailable"
-    log_warn "  2. Your IP address might be blocked or rate-limited"
-    log_warn "  3. Network connectivity issues to Cloudflare API"
-    log_warn ""
-    log_warn "Solutions:"
-    log_warn "  1. Wait a few hours and try again"
-    log_warn "  2. Try from a different IP/location"
-    log_warn "  3. Continue installation without WARP profile"
-    log_warn "  4. Manually register at https://one.one.one.one/"
-    log_warn ""
-    
-    if ask_yes_no "Continue installation without WARP profile?" "y"; then
-        # Disable WARP profile
-        export PROFILE_WARP_ENABLED="false"
-        log_info "WARP profile disabled, continuing installation..."
-        return 0
+    # Extract IPv4 and IPv6 from address
+    local ipv4 ipv6
+    if [[ "${address}" == *","* ]]; then
+        ipv4=$(echo "${address}" | cut -d',' -f1 | tr -d ' ')
+        ipv6=$(echo "${address}" | cut -d',' -f2 | tr -d ' ')
     else
-        return 1
+        ipv4="${address}"
+        ipv6="2606:4700:110::/128"  # Default if not present
     fi
-}
-
-regenerate_warp_outbound() {
-    if [[ ! -f "${WARP_CONFIG_FILE}" ]]; then
-        log_error "WARP account config not found"
-        return 1
-    fi
-    
-    local method
-    method=$(jq -r '.method // "unknown"' "${WARP_CONFIG_FILE}")
-    
-    case "${method}" in
-        wgcf)
-            local private_key peer_public_key endpoint ipv4 ipv6
-            private_key=$(jq -r '.private_key' "${WARP_CONFIG_FILE}")
-            peer_public_key=$(jq -r '.peer_public_key' "${WARP_CONFIG_FILE}")
-            endpoint=$(jq -r '.endpoint' "${WARP_CONFIG_FILE}")
-            ipv4=$(jq -r '.ipv4 // "172.16.0.2/32"' "${WARP_CONFIG_FILE}")
-            ipv6=$(jq -r '.ipv6 // "2606:4700:110::/128"' "${WARP_CONFIG_FILE}")
-            
-            generate_warp_xray_outbound "${private_key}" "${peer_public_key}" "${endpoint}" "[0, 0, 0]" "${ipv4}" "${ipv6}"
-            ;;
-        manual)
-            local private_key peer_public_key endpoint
-            private_key=$(jq -r '.private_key' "${WARP_CONFIG_FILE}")
-            peer_public_key=$(jq -r '.peer_public_key' "${WARP_CONFIG_FILE}")
-            endpoint=$(jq -r '.endpoint' "${WARP_CONFIG_FILE}")
-            
-            generate_warp_xray_outbound "${private_key}" "${peer_public_key}" "${endpoint}" "[0, 0, 0]" "172.16.0.2/32" "2606:4700:110::/128"
-            ;;
-        *)
-            log_error "Unknown WARP registration method: ${method}"
-            return 1
-            ;;
-    esac
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# XRAY WARP OUTBOUND
-# ═══════════════════════════════════════════════════════════════════════════════
-
-generate_warp_xray_outbound() {
-    local private_key="${1}"
-    local peer_public_key="${2}"
-    local endpoint="${3}"
-    local reserved="${4:-[0, 0, 0]}"
-    local ipv4="${5:-172.16.0.2/32}"
-    local ipv6="${6:-2606:4700:110:8a36:df92:102a:9602:fa18/128}"
-    
-    log_info "Generating Xray WARP outbound configuration..."
     
     # Parse endpoint
     local endpoint_host endpoint_port
     endpoint_host="${endpoint%:*}"
     endpoint_port="${endpoint##*:}"
     
+    log_info "Creating Xray outbound configuration..."
+    
+    # Generate Xray-compatible outbound
     cat > "${WARP_OUTBOUND_FILE}" << EOF
 {
     "tag": "warp",
@@ -403,15 +317,32 @@ generate_warp_xray_outbound() {
                 "keepAlive": 30
             }
         ],
-        "reserved": ${reserved},
-        "mtu": 1280
+        "reserved": [0, 0, 0],
+        "mtu": 1280,
+        "workers": 2
     }
 }
 EOF
     
     chmod 600 "${WARP_OUTBOUND_FILE}"
     
-    log_success "WARP outbound configuration saved to ${WARP_OUTBOUND_FILE}"
+    # Validate JSON
+    if ! jq . "${WARP_OUTBOUND_FILE}" > /dev/null 2>&1; then
+        log_error "Generated Xray outbound is invalid JSON"
+        return 1
+    fi
+    
+    log_success "Xray WARP outbound generated: ${WARP_OUTBOUND_FILE}"
+    
+    # Display config summary
+    log_info "═══════════════════════════════════════════════════════"
+    log_info "WARP Configuration Summary:"
+    log_info "  Private Key: ${private_key:0:20}..."
+    log_info "  IPv4: ${ipv4}"
+    log_info "  IPv6: ${ipv6}"
+    log_info "  Endpoint: ${endpoint}"
+    log_info "  Peer Public Key: ${peer_public_key:0:20}..."
+    log_info "═══════════════════════════════════════════════════════"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -419,33 +350,21 @@ EOF
 # ═══════════════════════════════════════════════════════════════════════════════
 
 get_warp_routing_rules() {
-    # Returns routing rules for WARP-bound traffic
-    
     cat << 'EOF'
 [
     {
         "type": "field",
-        "domain": ["geosite:openai"],
+        "domain": ["geosite:openai", "domain:anthropic.com", "domain:claude.ai"],
         "outboundTag": "warp"
     },
     {
         "type": "field",
-        "domain": ["geosite:netflix"],
+        "domain": ["geosite:netflix", "geosite:spotify"],
         "outboundTag": "warp"
     },
     {
         "type": "field",
-        "domain": ["geosite:spotify"],
-        "outboundTag": "warp"
-    },
-    {
-        "type": "field",
-        "domain": ["domain:anthropic.com", "domain:claude.ai"],
-        "outboundTag": "warp"
-    },
-    {
-        "type": "field",
-        "domain": ["geosite:google"],
+        "domain": ["geosite:google", "geosite:youtube"],
         "outboundTag": "warp"
     }
 ]
@@ -453,57 +372,57 @@ EOF
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# WARP STATUS
+# STATUS AND TESTING
 # ═══════════════════════════════════════════════════════════════════════════════
 
 show_warp_status() {
-    echo
+    echo ""
     log_info "═══ WARP Status ═══"
     
-    if is_warp_registered; then
-        echo "Registration: ✓ Registered"
+    if [[ -f "${WARP_CONFIG_FILE}" ]]; then
+        echo "✓ WARP account: Registered"
         
-        if [[ -f "${WARP_CONFIG_FILE}" ]]; then
-            echo "Device ID: $(jq -r '.device_id' "${WARP_CONFIG_FILE}" 2>/dev/null || echo 'N/A')"
-            echo "Method: $(jq -r '.method // "unknown"' "${WARP_CONFIG_FILE}" 2>/dev/null)"
-            echo "Registered: $(jq -r '.registered_at' "${WARP_CONFIG_FILE}" 2>/dev/null || echo 'N/A')"
+        local account_type
+        account_type=$(grep -E "^Type = " "${WARP_CONFIG_FILE}" | cut -d'=' -f2 | tr -d ' ')
+        echo "  Account Type: ${account_type}"
+        
+        if [[ -f "${WARP_KEY_FILE}" ]]; then
+            local key
+            key=$(cat "${WARP_KEY_FILE}")
+            echo "  WARP+ Key: ${key}"
         fi
         
         if [[ -f "${WARP_OUTBOUND_FILE}" ]]; then
-            echo "Outbound config: ✓ Generated"
+            echo "✓ Xray outbound: Generated"
         else
-            echo "Outbound config: ✗ Not generated"
+            echo "✗ Xray outbound: Not generated"
         fi
     else
-        echo "Registration: ✗ Not registered"
+        echo "✗ WARP account: Not registered"
     fi
     
-    echo
+    echo ""
+}
+
+test_warp_config() {
+    log_info "Testing WARP configuration..."
+    
+    if [[ ! -f "${WARP_OUTBOUND_FILE}" ]]; then
+        log_error "WARP outbound configuration not found"
+        return 1
+    fi
+    
+    if validate_json "${WARP_OUTBOUND_FILE}"; then
+        log_success "WARP configuration is valid"
+        return 0
+    else
+        log_error "WARP configuration is invalid"
+        return 1
+    fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# WARP TESTING
-# ═══════════════════════════════════════════════════════════════════════════════
-
-test_warp_connection() {
-    log_info "Testing WARP connection..."
-    
-    # This would require the WARP connection to be active
-    # For now, we just validate the configuration exists
-    
-    if [[ -f "${WARP_OUTBOUND_FILE}" ]]; then
-        if validate_json "${WARP_OUTBOUND_FILE}"; then
-            log_success "WARP configuration is valid"
-            return 0
-        fi
-    fi
-    
-    log_warn "WARP configuration not ready"
-    return 1
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# MAIN
+# MAIN SETUP
 # ═══════════════════════════════════════════════════════════════════════════════
 
 setup_warp() {
@@ -514,26 +433,62 @@ setup_warp() {
         return 0
     fi
     
-    # Install dependencies
-    if ! command -v jq &> /dev/null; then
-        log_info "Installing jq..."
-        apt-get install -y jq 2>/dev/null || true
+    # Download tools
+    download_warp_tools || {
+        log_error "Failed to download WARP tools"
+        return 1
+    }
+    
+    # Determine account type
+    local account_type="plus"  # Default to WARP+ with auto-generated key
+    
+    # Register account
+    if register_warp_account "${account_type}"; then
+        log_success "WARP account registered"
+    else
+        log_error "═══════════════════════════════════════════════════════"
+        log_error "WARP Registration Failed"
+        log_error "═══════════════════════════════════════════════════════"
+        
+        if ask_yes_no "Continue installation without WARP profile?" "y"; then
+            export PROFILE_WARP_ENABLED="false"
+            log_info "WARP profile disabled, continuing..."
+            return 0
+        else
+            return 1
+        fi
     fi
     
-    # Register WARP
-    if ! register_warp; then
-        log_warn "WARP setup incomplete"
+    # Generate Xray outbound
+    if generate_xray_warp_outbound; then
+        log_success "Xray WARP outbound configured"
+    else
+        log_error "Failed to generate Xray outbound"
         return 1
     fi
     
+    # Show status
     show_warp_status
     
     log_success "WARP setup completed"
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLEANUP
+# ═══════════════════════════════════════════════════════════════════════════════
+
+cleanup_warp() {
+    log_info "Cleaning up WARP temporary files..."
+    
+    rm -f "${WARP_TOOLS_DIR}"/*.log
+    rm -f "${WARP_TOOLS_DIR}"/wgcf-*.toml
+    
+    log_success "WARP cleanup completed"
+}
+
 # Export functions
 export -f setup_warp
-export -f register_warp
+export -f generate_warp_plus_key
 export -f show_warp_status
-export -f is_warp_registered
+export -f test_warp_config
 export -f get_warp_routing_rules
