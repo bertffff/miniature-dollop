@@ -21,7 +21,7 @@ fi
 # GitHub releases for warp-go and warp-api
 readonly WARP_GO_VERSION="1.3.11"
 readonly WARP_GO_URL="https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-go/warp-go-latest-linux-amd64"
-readonly WARP_API_URL="https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-api/warp-api-latest-linux-amd64"
+readonly WARP_API_URL="https://gitlab.com/Misaka-blog/warp-script/-/raw/main/files/warp-api/main-linux-amd64"
 
 # Local paths
 readonly WARP_TOOLS_DIR="${TOOLS_DIR}/warp"
