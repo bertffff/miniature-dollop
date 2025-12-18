@@ -383,7 +383,9 @@ show_warp_status() {
         echo "✓ WARP account: Registered"
         
         local account_type
-        account_type=$(grep -E "^Type\s*=" "${WARP_CONFIG_FILE}" 2>/dev/null | cut -d'=' -f2 | tr -d ' ' || echo "Unknown")
+        account_type=$(awk -F '=' '/Type/ {gsub(/[ \t]/, "", $2); print $2; exit}' "${WARP_CONFIG_FILE}" 2>/dev/null)
+        if [[ -z "${account_type}" ]]; then account_type="Unknown"; fi
+        
         echo "  Account Type: ${account_type}"
         
         if [[ -f "${WARP_KEY_FILE}" ]]; then
