@@ -176,7 +176,7 @@ generate_marzban_env() {
 # Date: $(date -Iseconds)
 
 # Dashboard
-UVICORN_HOST=127.0.0.1
+UVICORN_HOST=0.0.0.0
 UVICORN_PORT=${MARZBAN_PORT:-8000}
 
 # Admin credentials
@@ -357,10 +357,12 @@ start_marzban() {
     local max_wait=60
     local waited=0
     
+    local api_ready=false
     while [[ ${waited} -lt ${max_wait} ]]; do
         if is_marzban_running; then
             # Check if API is responding
             if curl -sf "http://127.0.0.1:${MARZBAN_PORT:-8000}/api/admin" > /dev/null 2>&1; then
+                api_ready=true
                 break
             fi
         fi
@@ -371,10 +373,10 @@ start_marzban() {
     
     echo
     
-    if is_marzban_running; then
+    if [[ "${api_ready}" == "true" ]]; then
         log_success "Marzban started successfully"
     else
-        log_error "Marzban failed to start"
+        log_error "Marzban failed to start (API check timeout)"
         log_info "Checking logs..."
         docker compose logs --tail=20
         return 1
