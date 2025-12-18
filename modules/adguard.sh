@@ -420,10 +420,11 @@ setup_adguard_standalone() {
 # MAIN SETUP FUNCTION
 # =============================================================================
 
-setup_adguard() {
-    local admin_username="${1:-admin}"
-    local admin_password="${2}"
-    local panel_domain="${3:-}"
+setup_adguard_home() {
+    # Исправлено: берем значения из аргументов ИЛИ из глобальных переменных
+    local admin_username="${1:-${ADMIN_USERNAME:-admin}}"
+    local admin_password="${2:-${ADMIN_PASSWORD}}"
+    local panel_domain="${3:-${PANEL_DOMAIN:-}}"
     local use_docker="${4:-true}"
     
     log_step "Setting up AdGuard Home"
@@ -449,7 +450,7 @@ setup_adguard() {
     generate_adguard_config "${admin_username}" "${admin_password}" "${panel_domain}"
     
     # Save credentials
-    local creds_file="${INSTALLER_DATA_DIR:-/home/claude/marzban-installer/data}/adguard_credentials.env"
+    local creds_file="${DATA_DIR}/adguard_credentials.env"
     cat > "${creds_file}" << EOF
 # AdGuard Home Credentials
 # Generated: $(date -Iseconds)
@@ -633,3 +634,11 @@ test_adguard_dns() {
         return 1
     fi
 }
+
+# Export functions
+export -f setup_adguard_home
+export -f generate_adguard_config
+export -f generate_adguard_compose_service
+export -f check_port_53_conflict
+export -f stop_conflicting_dns_services
+export -f configure_adguard_tls
