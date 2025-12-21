@@ -349,6 +349,19 @@ EOF
 start_marzban() {
     set_phase "Starting Marzban"
     
+    # Проверка наличия Docker
+    if ! command -v docker &> /dev/null; then
+        log_warn "Docker not found. Attempting to reinstall..."
+        if [[ -f "${SCRIPT_DIR}/docker.sh" ]]; then
+            source "${SCRIPT_DIR}/docker.sh"
+            install_docker
+            configure_docker_daemon
+        else
+            log_error "Docker is missing and cannot be restored automatically."
+            return 1
+        fi
+    fi
+
     log_info "Starting Marzban services..."
     
     cd "${MARZBAN_DIR}"
