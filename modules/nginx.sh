@@ -63,7 +63,6 @@ install_nginx() {
         
         # Если не вышло - полная зачистка
         apt-get purge -y nginx nginx-common nginx-core libnginx-mod-stream || true
-        apt-get autoremove -y || true
         rm -rf /etc/nginx
         
         # Пробуем снова через стандартную функцию
