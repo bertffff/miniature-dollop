@@ -773,56 +773,56 @@ run_health_check() {
     local checks_total=0
     
     # Check Docker
-    ((checks_total++))
+    ((++checks_total))
     if docker info &>/dev/null; then
         echo "✓ Docker: Running"
-        ((checks_passed++))
+        ((++checks_passed))
     else
         echo "✗ Docker: Not running"
     fi
     
     # Check Marzban container
-    ((checks_total++))
+    ((++checks_total))
     if docker ps --format '{{.Names}}' | grep -q "marzban"; then
         echo "✓ Marzban: Running"
-        ((checks_passed++))
+        ((++checks_passed))
     else
         echo "✗ Marzban: Not running"
     fi
     
     # Check Nginx
-    ((checks_total++))
+    ((++checks_total))
     if systemctl is-active --quiet nginx; then
         echo "✓ Nginx: Running"
-        ((checks_passed++))
+        ((++checks_passed))
     else
         echo "✗ Nginx: Not running"
     fi
     
     # Check UFW
-    ((checks_total++))
+    ((++checks_total))
     if ufw status | grep -q "Status: active"; then
         echo "✓ Firewall: Active"
-        ((checks_passed++))
+        ((++checks_passed))
     else
         echo "✗ Firewall: Inactive"
     fi
     
     # Check BBR
-    ((checks_total++))
+    ((++checks_total))
     if sysctl net.ipv4.tcp_congestion_control 2>/dev/null | grep -q "bbr"; then
         echo "✓ BBR: Enabled"
-        ((checks_passed++))
+        ((++checks_passed))
     else
         echo "✗ BBR: Not enabled"
     fi
     
     # Check SSL
     if [[ "${SSL_MANAGED_BY_CDN:-false}" != "true" ]]; then
-        ((checks_total++))
+        ((++checks_total))
         if [[ -f "/etc/letsencrypt/live/${PANEL_DOMAIN}/fullchain.pem" ]]; then
             echo "✓ SSL Certificate: Valid"
-            ((checks_passed++))
+            ((++checks_passed))
         else
             echo "✗ SSL Certificate: Not found"
         fi
@@ -830,10 +830,10 @@ run_health_check() {
     
     # Check AdGuard if enabled
     if [[ "${ADGUARD_ENABLED}" == "true" ]]; then
-        ((checks_total++))
+        ((++checks_total))
         if docker ps --format '{{.Names}}' | grep -q "adguard"; then
             echo "✓ AdGuard Home: Running"
-            ((checks_passed++))
+            ((++checks_passed))
         else
             echo "✗ AdGuard Home: Not running"
         fi
@@ -963,7 +963,7 @@ run_installation() {
         esac
     fi
     
-# Load configuration
+    # Load configuration
     if ! load_configuration; then
         log_error "Configuration not found. Run wizard first."
         exit 1
