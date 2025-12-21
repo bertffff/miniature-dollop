@@ -45,7 +45,7 @@ install_nginx() {
     
     log_info "Installing Nginx..."
     
-    install_packages nginx
+    install_packages nginx libnginx-mod-stream
     
     # Ensure nginx is stopped for initial configuration
     systemctl stop nginx 2>/dev/null || true
