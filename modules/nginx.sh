@@ -244,7 +244,7 @@ upstream xray_websocket {
 }
 
 upstream marzban_panel {
-    server 127.0.0.1:${marzban_port};
+    server 127.0.0.1:8081; 
 }
 
 upstream fake_site {
@@ -272,6 +272,47 @@ EOF
     log_success "SNI routing configured"
 }
 
+configure_marzban_panel_server() {
+    set_phase "Marzban Panel SSL Configuration"
+    
+    local panel_domain="${PANEL_DOMAIN:-}"
+    # Используем внутренний порт для SSL терминации
+    local panel_ssl_port="8081" 
+    local marzban_port="${MARZBAN_PORT:-8000}"
+
+    if [[ -z "${panel_domain}" ]]; then
+        return 0
+    fi
+
+    log_info "Configuring Marzban Panel SSL server..."
+
+    cat > "${NGINX_CONF_DIR}/conf.d/marzban-panel.conf" << EOF
+# Marzban Panel SSL Termination
+# Handles HTTPS requests forwarded by SNI router
+
+server {
+    listen 127.0.0.1:${panel_ssl_port} ssl http2;
+    server_name ${panel_domain};
+
+    # SSL Certificates
+    ssl_certificate /etc/letsencrypt/live/${panel_domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${panel_domain}/privkey.pem;
+
+    # Proxy settings
+    location / {
+        proxy_pass http://127.0.0.1:${marzban_port};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    }
+}
+EOF
+    
+    register_rollback "rm -f ${NGINX_CONF_DIR}/conf.d/marzban-panel.conf" "normal"
+}
 
 configure_fake_site_server() {
     set_phase "Fake Site Server Configuration"
@@ -618,6 +659,7 @@ setup_nginx() {
     configure_nginx_main
     configure_sni_routing
     configure_fake_site_server
+    configure_marzban_panel_server
     setup_fake_website
     generate_dhparam
     
