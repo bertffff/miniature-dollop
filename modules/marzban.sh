@@ -18,9 +18,17 @@ fi
 # CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-readonly MARZBAN_REPO="https://github.com/Gozargah/Marzban"
-readonly MARZBAN_DATA="/var/lib/marzban"
-readonly MARZBAN_ENV="${MARZBAN_DIR}/.env"
+if [[ -z "${MARZBAN_REPO:-}" ]]; then
+    readonly MARZBAN_REPO="https://github.com/Gozargah/Marzban"
+fi
+
+if [[ -z "${MARZBAN_DATA:-}" ]]; then
+    readonly MARZBAN_DATA="/var/lib/marzban"
+fi
+
+if [[ -z "${MARZBAN_ENV:-}" ]]; then
+    readonly MARZBAN_ENV="${MARZBAN_DIR}/.env"
+fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MARZBAN INSTALLATION
