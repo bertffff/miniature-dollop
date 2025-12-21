@@ -1,0 +1,30 @@
+{
+    "tag": "{{INBOUND_TAG}}",
+    "listen": "127.0.0.1",
+    "port": {{PORT}},
+    "protocol": "vless",
+    "settings": {
+        "clients": [],
+        "decryption": "none"
+    },
+    "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+            "acceptProxyProtocol": false,
+            "path": "{{WS_PATH}}",
+            "headers": {
+                "Host": "{{CDN_DOMAIN}}"
+            }
+        }
+    },
+    "sniffing": {
+        "enabled": true,
+        "destOverride": [
+            "http",
+            "tls"
+        ],
+        "metadataOnly": false,
+        "routeOnly": false
+    }
+}
