@@ -100,7 +100,7 @@ EOF
     # Add healthcheck
     cat >> "${compose_file}" << 'EOF'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/admin"]
+      test: ["CMD", "curl", "-s", "http://127.0.0.1:8000/api/admin"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -360,8 +360,11 @@ start_marzban() {
     local api_ready=false
     while [[ ${waited} -lt ${max_wait} ]]; do
         if is_marzban_running; then
-            # Check if API is responding
-            if curl -sf "http://127.0.0.1:${MARZBAN_PORT:-8000}/api/admin" > /dev/null 2>&1; then
+            # Check if API is responding (allow 200 OK or 401 Unauthorized)
+            local status_code
+            status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${MARZBAN_PORT:-8000}/api/admin")
+            
+            if [[ "$status_code" == "200" ]] || [[ "$status_code" == "401" ]]; then
                 api_ready=true
                 break
             fi
