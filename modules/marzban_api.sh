@@ -141,7 +141,7 @@ get_inbounds() {
 
 get_inbound() {
     local tag="${1}"
-    api_request "GET" "/inbounds/${tag}"
+    api_request "GET" "/inbound/${tag}"
 }
 
 create_inbound() {
@@ -151,7 +151,7 @@ create_inbound() {
     log_info "Creating inbound${inbound_tag:+: ${inbound_tag}}..."
     
     local response
-    response=$(api_request "POST" "/inbounds" "${json_payload}") || {
+    response=$(api_request "POST" "/inbound" "${json_payload}") || {
         log_error "Failed to create inbound"
         return 1
     }
@@ -172,7 +172,7 @@ update_inbound() {
     log_info "Updating inbound: ${tag}..."
     
     local response
-    response=$(api_request "PUT" "/inbounds/${tag}" "${json_payload}") || {
+    response=$(api_request "PUT" "/inbound/${tag}" "${json_payload}") || {
         log_error "Failed to update inbound"
         return 1
     }
@@ -185,7 +185,7 @@ delete_inbound() {
     
     log_info "Deleting inbound: ${tag}..."
     
-    api_request "DELETE" "/inbounds/${tag}" || {
+    api_request "DELETE" "/inbound/${tag}" || {
         log_error "Failed to delete inbound"
         return 1
     }
