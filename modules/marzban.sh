@@ -362,7 +362,7 @@ start_marzban() {
         if is_marzban_running; then
             # Check if API is responding (allow 200 OK or 401 Unauthorized)
             local status_code
-            status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${MARZBAN_PORT:-8000}/api/admin")
+            status_code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${MARZBAN_PORT:-8000}/api/admin" || echo "000")
             
             if [[ "$status_code" == "200" ]] || [[ "$status_code" == "401" ]]; then
                 api_ready=true
