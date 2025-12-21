@@ -175,27 +175,21 @@ configure_sni_routing() {
     local panel_domain="${PANEL_DOMAIN:-}"
     local cdn_domain="${CDN_DOMAIN:-}"
 
-    # --- НАЧАЛО ИСПРАВЛЕНИЯ: Валидация портов ---
-    # Проверяем, является ли порт числом. Если нет — ставим значение по умолчанию.
-    
+    # Валидация портов
     local reality_port="${REALITY_PORT:-8443}"
     if [[ ! "${reality_port}" =~ ^[0-9]+$ ]]; then
-        log_warn "Invalid REALITY_PORT '${reality_port}', using default 8443"
         reality_port="8443"
     fi
 
     local ws_port="${WS_PORT:-8444}"
     if [[ ! "${ws_port}" =~ ^[0-9]+$ ]]; then
-        log_warn "Invalid WS_PORT '${ws_port}', using default 8444"
         ws_port="8444"
     fi
 
     local marzban_port="${MARZBAN_PORT:-8000}"
     if [[ ! "${marzban_port}" =~ ^[0-9]+$ ]]; then
-        log_warn "Invalid MARZBAN_PORT '${marzban_port}', using default 8000"
         marzban_port="8000"
     fi
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
     # Create SNI routing configuration
     cat > "${NGINX_STREAM_DIR}/sni-router.conf" << EOF
@@ -213,7 +207,7 @@ EOF
     # Add panel domain if configured
     if [[ -n "${panel_domain}" ]]; then
         cat >> "${NGINX_STREAM_DIR}/sni-router.conf" << EOF
-    # Panel domain - proxy to Marzban
+    # Panel domain - proxy to Local Nginx for SSL Termination
     "${panel_domain}"                                            marzban_panel;
     
 EOF
@@ -244,7 +238,8 @@ upstream xray_websocket {
 }
 
 upstream marzban_panel {
-    server 127.0.0.1:8081; 
+    # FIX: Route to local Nginx SSL termination block (port 8081) instead of direct to Marzban
+    server 127.0.0.1:8081;
 }
 
 upstream fake_site {
@@ -272,33 +267,25 @@ EOF
     log_success "SNI routing configured"
 }
 
+# НОВАЯ ФУНКЦИЯ: Создание SSL конфигурации для панели
 configure_marzban_panel_server() {
-    set_phase "Marzban Panel SSL Configuration"
-    
-    local panel_domain="${PANEL_DOMAIN:-}"
-    # Используем внутренний порт для SSL терминации
-    local panel_ssl_port="8081" 
+    local domain="${PANEL_DOMAIN:-}"
     local marzban_port="${MARZBAN_PORT:-8000}"
-
-    if [[ -z "${panel_domain}" ]]; then
-        return 0
-    fi
-
-    log_info "Configuring Marzban Panel SSL server..."
-
+    
+    if [[ -z "${domain}" ]]; then return 0; fi
+    
+    log_info "Configuring Marzban Panel SSL termination..."
+    
     cat > "${NGINX_CONF_DIR}/conf.d/marzban-panel.conf" << EOF
-# Marzban Panel SSL Termination
-# Handles HTTPS requests forwarded by SNI router
-
 server {
-    listen 127.0.0.1:${panel_ssl_port} ssl http2;
-    server_name ${panel_domain};
-
+    listen 127.0.0.1:8081 ssl http2;
+    server_name ${domain};
+    
     # SSL Certificates
-    ssl_certificate /etc/letsencrypt/live/${panel_domain}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${panel_domain}/privkey.pem;
-
-    # Proxy settings
+    ssl_certificate /etc/letsencrypt/live/${domain}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${domain}/privkey.pem;
+    
+    # Proxy to Marzban
     location / {
         proxy_pass http://127.0.0.1:${marzban_port};
         proxy_http_version 1.1;
@@ -310,8 +297,7 @@ server {
     }
 }
 EOF
-    
-    register_rollback "rm -f ${NGINX_CONF_DIR}/conf.d/marzban-panel.conf" "normal"
+    log_success "Marzban Panel SSL config created"
 }
 
 configure_fake_site_server() {
@@ -659,7 +645,6 @@ setup_nginx() {
     configure_nginx_main
     configure_sni_routing
     configure_fake_site_server
-    configure_marzban_panel_server
     setup_fake_website
     generate_dhparam
     
@@ -682,3 +667,4 @@ export -f setup_fake_website
 export -f test_nginx_config
 export -f reload_nginx
 export -f restart_nginx
+export -f configure_marzban_panel_server
