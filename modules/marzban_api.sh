@@ -76,7 +76,7 @@ api_request() {
     local data="${3:-}"
     
     local curl_opts=(
-        -sf
+        -s
         -X "${method}"
         -H "Authorization: Bearer ${MARZBAN_API_TOKEN}"
         -H "Content-Type: application/json"
@@ -86,7 +86,22 @@ api_request() {
         curl_opts+=(-d "${data}")
     fi
     
-    curl "${curl_opts[@]}" "${MARZBAN_API_BASE}${endpoint}" 2>/dev/null
+    # Используем временный файл для разделения тела ответа и кода состояния
+    local temp_response=$(mktemp)
+    local http_code
+    
+    http_code=$(curl "${curl_opts[@]}" -w "%{http_code}" -o "${temp_response}" "${MARZBAN_API_BASE}${endpoint}")
+    local response=$(cat "${temp_response}")
+    rm -f "${temp_response}"
+
+    # Если код ответа 4xx или 5xx, логируем ошибку и возвращаем 1
+    if [[ "${http_code}" -ge 400 ]]; then
+        log_error "API Request Failed: ${method} ${endpoint} (HTTP ${http_code})"
+        log_error "Response: ${response}"
+        return 1
+    fi
+    
+    echo "${response}"
 }
 
 wait_for_api() {
