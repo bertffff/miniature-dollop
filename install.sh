@@ -656,7 +656,7 @@ phase_api_configuration() {
     fi
     
     # Authenticate
-    if ! api_authenticate "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}"; then
+    if ! get_admin_token "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}"; then
         log_error "Failed to authenticate with Marzban API"
         return 1
     fi
