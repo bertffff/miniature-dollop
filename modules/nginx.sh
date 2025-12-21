@@ -38,14 +38,37 @@ is_nginx_installed() {
 install_nginx() {
     set_phase "Nginx Installation"
     
-    if is_nginx_installed; then
+    # Проверяем, установлен ли nginx и находится ли он в корректном состоянии
+    if is_nginx_installed && dpkg -s nginx 2>/dev/null | grep -q "Status: install ok installed"; then
         log_info "Nginx already installed"
         return 0
     fi
     
     log_info "Installing Nginx..."
     
-    install_packages nginx libnginx-mod-stream
+    # 1. Предварительная очистка, если остались "хвосты" от предыдущей установки
+    # Это решает проблему, когда apt думает, что конфиги удалены намеренно
+    if dpkg -l | grep -qE "^rc\s+nginx"; then
+        log_info "Purging residual nginx configuration..."
+        apt-get purge -y nginx nginx-common nginx-core 2>/dev/null || true
+    fi
+    
+    # 2. Установка с принудительным восстановлением конфигов
+    # Используем опции --force-confmiss и --force-confnew, чтобы вернуть nginx.conf
+    log_info "Attempting Nginx installation with forced config restoration..."
+    
+    # Используем apt-get напрямую, чтобы передать специфические флаги dpkg
+    if ! apt-get install -y -o Dpkg::Options::="--force-confmiss" -o Dpkg::Options::="--force-confnew" nginx libnginx-mod-stream; then
+        log_warn "Standard installation failed. Attempting deep cleanup and reinstall..."
+        
+        # Если не вышло - полная зачистка
+        apt-get purge -y nginx nginx-common nginx-core libnginx-mod-stream || true
+        apt-get autoremove -y || true
+        rm -rf /etc/nginx
+        
+        # Пробуем снова через стандартную функцию
+        install_packages nginx libnginx-mod-stream
+    fi
     
     # Ensure nginx is stopped for initial configuration
     systemctl stop nginx 2>/dev/null || true
