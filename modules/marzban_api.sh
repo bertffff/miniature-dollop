@@ -183,28 +183,72 @@ update_inbound() {
     local tag="${1}"
     local json_payload="${2}"
     
-    log_info "Updating inbound: ${tag}..."
+    log_info "Updating inbound: ${tag} via Core Config..."
     
-    local response
-    response=$(api_request "PUT" "/inbound/${tag}" "${json_payload}") || {
-        log_error "Failed to update inbound"
+    # 1. Получаем текущую конфигурацию
+    local current_config
+    current_config=$(api_request "GET" "/core/config") || {
+        log_error "Failed to fetch core config"
         return 1
     }
     
+    # 2. Модифицируем JSON: находим элемент по тегу и заменяем его
+    # Используем --argjson для вставки payload как объекта, а не строки
+    local new_config
+    new_config=$(echo "${current_config}" | jq --arg tag "${tag}" --argjson new_content "${json_payload}" \
+        '(.inbounds[] | select(.tag == $tag)) |= $new_content') || {
+        log_error "Failed to modify config with jq"
+        return 1
+    }
+    
+    # 3. Отправляем обновленный конфиг
+    api_request "PUT" "/core/config" "${new_config}" > /dev/null || {
+        log_error "Failed to update core config"
+        return 1
+    }
+    
+    # 4. Перезагружаем ядро
+    restart_xray_core || {
+        log_warn "Failed to restart core automatically"
+    }
+    
     log_success "Inbound updated: ${tag}"
+    return 0
 }
 
 delete_inbound() {
     local tag="${1}"
     
-    log_info "Deleting inbound: ${tag}..."
+    log_info "Deleting inbound: ${tag} via Core Config..."
     
-    api_request "DELETE" "/inbound/${tag}" || {
-        log_error "Failed to delete inbound"
+    # 1. Получаем текущую конфигурацию
+    local current_config
+    current_config=$(api_request "GET" "/core/config") || {
+        log_error "Failed to fetch core config"
         return 1
     }
     
+    # 2. Модифицируем JSON: удаляем элемент, где tag совпадает с аргументом
+    local new_config
+    new_config=$(echo "${current_config}" | jq --arg tag "${tag}" \
+        'del(.inbounds[] | select(.tag == $tag))') || {
+        log_error "Failed to modify config with jq"
+        return 1
+    }
+    
+    # 3. Отправляем обновленный конфиг
+    api_request "PUT" "/core/config" "${new_config}" > /dev/null || {
+        log_error "Failed to update core config"
+        return 1
+    }
+    
+    # 4. Перезагружаем ядро
+    restart_xray_core || {
+        log_warn "Failed to restart core automatically"
+    }
+    
     log_success "Inbound deleted: ${tag}"
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
