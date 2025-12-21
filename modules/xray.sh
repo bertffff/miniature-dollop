@@ -22,9 +22,17 @@ fi
 # CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-readonly KEYS_DIR="${DATA_DIR:-/opt/marzban-installer/data}/keys"
-readonly KEYS_FILE="${KEYS_DIR}/reality_keys.json"
-readonly MARZBAN_DATA="${MARZBAN_DATA:-/var/lib/marzban}"
+if [[ -z "${KEYS_DIR:-}" ]]; then
+    readonly KEYS_DIR="${DATA_DIR:-/opt/marzban-installer/data}/keys"
+fi
+
+if [[ -z "${KEYS_FILE:-}" ]]; then
+    readonly KEYS_FILE="${KEYS_DIR}/reality_keys.json"
+fi
+
+if [[ -z "${MARZBAN_DATA:-}" ]]; then
+    readonly MARZBAN_DATA="${MARZBAN_DATA:-/var/lib/marzban}"
+fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # REALITY KEY GENERATION
