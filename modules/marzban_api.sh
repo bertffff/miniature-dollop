@@ -113,7 +113,7 @@ wait_for_api() {
     while [[ ${attempt} -lt ${max_attempts} ]]; do
         # Получаем HTTP код ответа вместо использования флага -f
         local status_code
-        status_code=$(curl -s -o /dev/null -w "%{http_code}" "${MARZBAN_API_BASE}/admin")
+        status_code=$(curl -s -o /dev/null -w "%{http_code}" "${MARZBAN_API_BASE}/admin" || echo "000")
         
         # Считаем API доступным, если вернулся код 200 (ОК), 401 (Нет доступа) или 403 (Запрещено)
         if [[ "$status_code" == "200" ]] || [[ "$status_code" == "401" ]] || [[ "$status_code" == "403" ]]; then
