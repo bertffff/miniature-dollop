@@ -148,21 +148,35 @@ create_inbound() {
     local json_payload="${1}"
     local inbound_tag="${2:-}"
     
-    log_info "Creating inbound${inbound_tag:+: ${inbound_tag}}..."
+    log_info "Creating inbound${inbound_tag:+: ${inbound_tag}} via Core Config..."
     
-    local response
-    response=$(api_request "POST" "/inbound" "${json_payload}") || {
-        log_error "Failed to create inbound"
+    # 1. Получаем текущую конфигурацию ядра
+    local current_config
+    current_config=$(api_request "GET" "/core/config") || {
+        log_error "Failed to fetch core config"
         return 1
     }
     
-    if echo "${response}" | jq -e '.tag' > /dev/null 2>&1; then
-        log_success "Inbound created: $(echo "${response}" | jq -r '.tag')"
-        return 0
-    else
-        log_error "Failed to create inbound: ${response}"
+    # 2. Добавляем новый inbound в массив inbounds с помощью jq
+    local new_config
+    new_config=$(echo "${current_config}" | jq --argjson new_inbound "${json_payload}" '.inbounds += [$new_inbound]') || {
+        log_error "Failed to modify config with jq"
         return 1
-    fi
+    }
+    
+    # 3. Отправляем обновленную конфигурацию обратно
+    api_request "PUT" "/core/config" "${new_config}" > /dev/null || {
+        log_error "Failed to update core config"
+        return 1
+    }
+    
+    # 4. Перезагружаем ядро для применения изменений
+    restart_xray_core || {
+        log_warn "Failed to restart core automatically"
+    }
+    
+    log_success "Inbound created and core updated: ${inbound_tag}"
+    return 0
 }
 
 update_inbound() {
